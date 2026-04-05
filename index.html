@@ -1,0 +1,372 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="theme-color" content="#1F3864">
+<meta name="description" content="Momo Magic Business Tracker - Track sales, expenses, inventory and more">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Momo Magic">
+<title>Momo Magic — Business Tracker</title>
+<link rel="manifest" href="manifest.json">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js"></script>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;background:#f5f5f7;color:#1d1d1f;min-height:100vh}
+.app{display:flex;height:100vh;min-height:600px}
+.sidebar{width:200px;flex-shrink:0;background:#fff;border-right:1px solid #e5e5e5;display:flex;flex-direction:column;padding:16px 0}
+.sidebar-logo{padding:12px 16px 20px;font-size:15px;font-weight:600;color:#1d1d1f;border-bottom:1px solid #e5e5e5;margin-bottom:8px}
+.nav-item{padding:9px 16px;font-size:13px;cursor:pointer;color:#6e6e73;border-radius:0;display:flex;align-items:center;gap:8px;transition:background 0.1s}
+.nav-item:hover{background:#f5f5f7;color:#1d1d1f}
+.nav-item.active{background:#e8f0fe;color:#1a56db;font-weight:500}
+.nav-section{font-size:11px;color:#aeaeb2;padding:12px 16px 4px;text-transform:uppercase;letter-spacing:0.05em}
+.main{flex:1;overflow-y:auto;padding:24px}
+.page{display:none}
+.page.active{display:block}
+.page-title{font-size:20px;font-weight:600;color:#1d1d1f;margin-bottom:4px}
+.page-sub{font-size:13px;color:#6e6e73;margin-bottom:20px}
+.metric-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:12px;margin-bottom:20px}
+.metric{background:#f5f5f7;border-radius:10px;padding:14px 16px}
+.metric-label{font-size:12px;color:#6e6e73;margin-bottom:6px}
+.metric-value{font-size:22px;font-weight:600;color:#1d1d1f}
+.metric-sub{font-size:11px;color:#aeaeb2;margin-top:3px}
+.card{background:#fff;border:1px solid #e5e5e5;border-radius:12px;padding:16px;margin-bottom:16px}
+.card-title{font-size:13px;font-weight:600;color:#1d1d1f;margin-bottom:12px}
+.chart-grid{display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:16px}
+table{width:100%;border-collapse:collapse;font-size:13px}
+th{text-align:left;font-size:11px;font-weight:500;color:#aeaeb2;padding:6px 10px;border-bottom:1px solid #e5e5e5;text-transform:uppercase;letter-spacing:0.04em}
+td{padding:9px 10px;border-bottom:1px solid #f0f0f0;color:#1d1d1f}
+tr:last-child td{border-bottom:none}
+tr:hover td{background:#f9f9f9}
+.badge{display:inline-block;padding:2px 8px;border-radius:20px;font-size:11px;font-weight:500}
+.badge-green{background:#dcfce7;color:#166534}
+.badge-red{background:#fee2e2;color:#991b1b}
+.badge-amber{background:#fef3c7;color:#92400e}
+.badge-blue{background:#dbeafe;color:#1e40af}
+.form-row{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:12px}
+.form-group{display:flex;flex-direction:column;gap:4px}
+.form-group label{font-size:12px;color:#6e6e73}
+input,select{width:100%;padding:8px 10px;border:1px solid #d1d1d6;border-radius:8px;font-size:13px;background:#fff;color:#1d1d1f;outline:none}
+input:focus,select:focus{border-color:#1a56db;box-shadow:0 0 0 3px rgba(26,86,219,0.1)}
+.btn{padding:8px 16px;border-radius:8px;font-size:13px;cursor:pointer;border:1px solid #d1d1d6;background:#fff;color:#1d1d1f;font-weight:500}
+.btn:hover{background:#f5f5f7}
+.btn-primary{background:#1a56db;color:#fff;border-color:transparent}
+.btn-primary:hover{background:#1e40af}
+.inv-bar{height:6px;background:#e5e5e5;border-radius:3px;overflow:hidden;margin-top:4px}
+.inv-bar-fill{height:100%;border-radius:3px}
+.profit-positive{color:#166534;font-weight:600}
+.profit-negative{color:#991b1b;font-weight:600}
+@media(max-width:640px){
+  .app{flex-direction:column}
+  .sidebar{width:100%;height:auto;flex-direction:row;overflow-x:auto;padding:0;border-right:none;border-bottom:1px solid #e5e5e5}
+  .sidebar-logo{display:none}
+  .nav-section{display:none}
+  .nav-item{white-space:nowrap;padding:12px 14px;flex-direction:column;gap:2px;font-size:11px;min-width:64px;text-align:center}
+  .main{padding:16px}
+  .chart-grid{grid-template-columns:1fr}
+  .form-row{grid-template-columns:1fr}
+  .metric-grid{grid-template-columns:repeat(2,1fr)}
+}
+</style>
+</head>
+<body>
+<div class="app">
+<div class="sidebar">
+  <div class="sidebar-logo">🥟 Momo Magic</div>
+  <div class="nav-section">Overview</div>
+  <div class="nav-item active" onclick="nav('dashboard',this)"><span>▣</span>Dashboard</div>
+  <div class="nav-section">Operations</div>
+  <div class="nav-item" onclick="nav('sales',this)"><span>◈</span>Sales</div>
+  <div class="nav-item" onclick="nav('expenses',this)"><span>◉</span>Expenses</div>
+  <div class="nav-item" onclick="nav('inventory',this)"><span>▦</span>Inventory</div>
+  <div class="nav-section">Finance</div>
+  <div class="nav-item" onclick="nav('pl',this)"><span>◆</span>P&L</div>
+  <div class="nav-item" onclick="nav('cashflow',this)"><span>◎</span>Cash Flow</div>
+</div>
+<div class="main">
+<div class="page active" id="page-dashboard">
+  <div class="page-title">Dashboard</div>
+  <div class="page-sub">March 2024 — live summary across all operations</div>
+  <div class="metric-grid">
+    <div class="metric"><div class="metric-label">Total revenue</div><div class="metric-value" id="d-rev">₹0</div><div class="metric-sub">from sales</div></div>
+    <div class="metric"><div class="metric-label">Total expenses</div><div class="metric-value" id="d-exp">₹0</div><div class="metric-sub">all categories</div></div>
+    <div class="metric"><div class="metric-label">Net profit</div><div class="metric-value" id="d-profit">₹0</div><div class="metric-sub" id="d-margin">margin</div></div>
+    <div class="metric"><div class="metric-label">Total orders</div><div class="metric-value" id="d-orders">0</div><div class="metric-sub">this month</div></div>
+    <div class="metric"><div class="metric-label">Cash balance</div><div class="metric-value" id="d-cash">₹0</div><div class="metric-sub">running total</div></div>
+    <div class="metric"><div class="metric-label">Best seller</div><div class="metric-value" style="font-size:14px" id="d-best">—</div><div class="metric-sub">by revenue</div></div>
+  </div>
+  <div class="chart-grid">
+    <div class="card"><div class="card-title">Revenue vs expenses</div><div style="position:relative;height:180px"><canvas id="c-revexp"></canvas></div></div>
+    <div class="card"><div class="card-title">Sales by product</div><div style="position:relative;height:180px"><canvas id="c-prod"></canvas></div></div>
+  </div>
+  <div class="card"><div class="card-title">Expense breakdown</div><div style="position:relative;height:160px"><canvas id="c-expcat"></canvas></div></div>
+</div>
+<div class="page" id="page-sales">
+  <div class="page-title">Sales tracker</div>
+  <div class="page-sub">Record every order — totals update automatically</div>
+  <div class="card">
+    <div class="card-title">Add new order</div>
+    <div class="form-row">
+      <div class="form-group"><label>Date</label><input type="date" id="s-date"></div>
+      <div class="form-group"><label>Customer name</label><input type="text" id="s-cust" placeholder="e.g. Priya Sharma"></div>
+    </div>
+    <div class="form-row">
+      <div class="form-group"><label>Product</label><select id="s-prod"><option>Chicken Momo</option><option>Veg Momo</option><option>Paneer Momo</option><option>Jhol Momo</option></select></div>
+      <div class="form-group"><label>Quantity</label><input type="number" id="s-qty" placeholder="e.g. 10" min="1"></div>
+    </div>
+    <div class="form-row">
+      <div class="form-group"><label>Price per unit (₹)</label><input type="number" id="s-price" placeholder="e.g. 120"></div>
+      <div style="display:flex;align-items:flex-end"><button class="btn btn-primary" onclick="addSale()">Add order</button></div>
+    </div>
+  </div>
+  <div class="card">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px">
+      <div class="card-title" style="margin:0">All orders</div>
+      <div style="font-size:13px;color:#6e6e73">Total: <strong id="s-total">₹0</strong></div>
+    </div>
+    <div style="overflow-x:auto">
+    <table><thead><tr><th>Date</th><th>Order ID</th><th>Customer</th><th>Product</th><th>Qty</th><th>Price</th><th>Total</th></tr></thead><tbody id="sales-body"></tbody></table>
+    </div>
+  </div>
+</div>
+<div class="page" id="page-expenses">
+  <div class="page-title">Expenses tracker</div>
+  <div class="page-sub">Track every rupee spent — auto categorised</div>
+  <div class="card">
+    <div class="card-title">Add expense</div>
+    <div class="form-row">
+      <div class="form-group"><label>Date</label><input type="date" id="e-date"></div>
+      <div class="form-group"><label>Category</label><select id="e-cat"><option>Ingredients</option><option>Packaging</option><option>Delivery</option><option>Marketing</option><option>Rent</option><option>Utilities</option><option>Miscellaneous</option></select></div>
+    </div>
+    <div class="form-row">
+      <div class="form-group"><label>Description</label><input type="text" id="e-desc" placeholder="e.g. Chicken 5 kg"></div>
+      <div class="form-group"><label>Amount (₹)</label><input type="number" id="e-amt" placeholder="e.g. 800"></div>
+    </div>
+    <button class="btn btn-primary" onclick="addExpense()">Add expense</button>
+  </div>
+  <div class="chart-grid">
+    <div class="card"><div class="card-title">Category breakdown</div><div style="position:relative;height:200px"><canvas id="c-exppie"></canvas></div></div>
+    <div class="card"><div class="card-title">Category totals</div><table><thead><tr><th>Category</th><th>Amount</th><th>Share</th></tr></thead><tbody id="exp-cat-body"></tbody></table></div>
+  </div>
+  <div class="card">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px">
+      <div class="card-title" style="margin:0">All expenses</div>
+      <div style="font-size:13px;color:#6e6e73">Total: <strong id="e-total">₹0</strong></div>
+    </div>
+    <div style="overflow-x:auto"><table><thead><tr><th>Date</th><th>Category</th><th>Description</th><th>Amount</th></tr></thead><tbody id="exp-body"></tbody></table></div>
+  </div>
+</div>
+<div class="page" id="page-inventory">
+  <div class="page-title">Inventory</div>
+  <div class="page-sub">Track stock levels — alerts when running low</div>
+  <div class="metric-grid" style="grid-template-columns:repeat(3,1fr)">
+    <div class="metric"><div class="metric-label">Total items</div><div class="metric-value" id="inv-total">0</div></div>
+    <div class="metric"><div class="metric-label">Low stock alerts</div><div class="metric-value" id="inv-low" style="color:#991b1b">0</div></div>
+    <div class="metric"><div class="metric-label">Items OK</div><div class="metric-value" id="inv-ok" style="color:#166534">0</div></div>
+  </div>
+  <div class="card"><div class="card-title">Stock levels</div><div style="overflow-x:auto"><table><thead><tr><th>Item</th><th>Unit</th><th>Opening</th><th>Purchased</th><th>Used</th><th>Closing</th><th>Reorder at</th><th>Status</th></tr></thead><tbody id="inv-body"></tbody></table></div></div>
+</div>
+<div class="page" id="page-pl">
+  <div class="page-title">Profit & Loss</div>
+  <div class="page-sub">Auto-calculated from sales and expenses</div>
+  <div class="chart-grid">
+    <div class="card"><table id="pl-table"><thead><tr><th>Item</th><th style="text-align:right">Amount (₹)</th></tr></thead><tbody id="pl-body"></tbody></table></div>
+    <div class="card"><div class="card-title">Visual breakdown</div><div style="position:relative;height:260px"><canvas id="c-pl"></canvas></div></div>
+  </div>
+</div>
+<div class="page" id="page-cashflow">
+  <div class="page-title">Cash flow</div>
+  <div class="page-sub">Running balance of money in and out</div>
+  <div class="metric-grid" style="grid-template-columns:repeat(3,1fr)">
+    <div class="metric"><div class="metric-label">Total cash in</div><div class="metric-value" id="cf-in">₹0</div></div>
+    <div class="metric"><div class="metric-label">Total cash out</div><div class="metric-value" id="cf-out">₹0</div></div>
+    <div class="metric"><div class="metric-label">Closing balance</div><div class="metric-value" id="cf-bal">₹0</div></div>
+  </div>
+  <div class="card"><div class="card-title">Running balance</div><div style="position:relative;height:200px"><canvas id="c-cf"></canvas></div></div>
+  <div class="card"><div style="overflow-x:auto"><table><thead><tr><th>Date</th><th>Description</th><th>Type</th><th>In (₹)</th><th>Out (₹)</th><th>Balance (₹)</th></tr></thead><tbody id="cf-body"></tbody></table></div></div>
+</div>
+</div>
+</div>
+<script>
+const fmt=n=>'₹'+Math.round(n).toLocaleString('en-IN');
+let sales=[
+  {date:'2024-03-01',id:'ORD-001',cust:'Priya Sharma',prod:'Chicken Momo',qty:10,price:120},
+  {date:'2024-03-01',id:'ORD-002',cust:'Rahul Gupta',prod:'Veg Momo',qty:8,price:100},
+  {date:'2024-03-02',id:'ORD-003',cust:'Sneha Patel',prod:'Paneer Momo',qty:6,price:110},
+  {date:'2024-03-03',id:'ORD-004',cust:'Amit Singh',prod:'Chicken Momo',qty:12,price:120},
+  {date:'2024-03-04',id:'ORD-005',cust:'Kavya Nair',prod:'Veg Momo',qty:5,price:100},
+  {date:'2024-03-05',id:'ORD-006',cust:'Rohit Mehta',prod:'Jhol Momo',qty:8,price:130},
+  {date:'2024-03-06',id:'ORD-007',cust:'Ananya Roy',prod:'Chicken Momo',qty:15,price:120},
+  {date:'2024-03-08',id:'ORD-008',cust:'Meera Joshi',prod:'Veg Momo',qty:10,price:100},
+  {date:'2024-03-10',id:'ORD-009',cust:'Arjun Reddy',prod:'Jhol Momo',qty:6,price:130},
+  {date:'2024-03-12',id:'ORD-010',cust:'Diya Kapoor',prod:'Chicken Momo',qty:20,price:120},
+  {date:'2024-03-14',id:'ORD-011',cust:'Suresh Kumar',prod:'Veg Momo',qty:12,price:100},
+  {date:'2024-03-15',id:'ORD-012',cust:'Pooja Iyer',prod:'Paneer Momo',qty:8,price:110},
+  {date:'2024-03-18',id:'ORD-013',cust:'Kiran Shetty',prod:'Chicken Momo',qty:18,price:120},
+  {date:'2024-03-20',id:'ORD-014',cust:'Neha Verma',prod:'Jhol Momo',qty:10,price:130},
+  {date:'2024-03-22',id:'ORD-015',cust:'Arun Pillai',prod:'Veg Momo',qty:14,price:100},
+  {date:'2024-03-25',id:'ORD-016',cust:'Bhavna Shah',prod:'Chicken Momo',qty:22,price:120},
+  {date:'2024-03-28',id:'ORD-017',cust:'Deepak Rao',prod:'Paneer Momo',qty:6,price:110},
+  {date:'2024-03-30',id:'ORD-018',cust:'Simran Kaur',prod:'Veg Momo',qty:16,price:100},
+  {date:'2024-03-31',id:'ORD-019',cust:'Rajesh Nair',prod:'Chicken Momo',qty:25,price:120},
+  {date:'2024-03-31',id:'ORD-020',cust:'Vikram Das',prod:'Jhol Momo',qty:7,price:130},
+];
+let expenses=[
+  {date:'2024-03-01',cat:'Ingredients',desc:'Chicken (5 kg)',amt:800},
+  {date:'2024-03-01',cat:'Ingredients',desc:'Maida flour (10 kg)',amt:350},
+  {date:'2024-03-02',cat:'Packaging',desc:'Aluminium containers',amt:600},
+  {date:'2024-03-03',cat:'Packaging',desc:'Zip-lock bags',amt:400},
+  {date:'2024-03-05',cat:'Ingredients',desc:'Mixed vegetables',amt:280},
+  {date:'2024-03-07',cat:'Delivery',desc:'Swiggy delivery charges',amt:320},
+  {date:'2024-03-10',cat:'Marketing',desc:'Instagram promotion',amt:500},
+  {date:'2024-03-12',cat:'Ingredients',desc:'Paneer (2 kg)',amt:320},
+  {date:'2024-03-13',cat:'Utilities',desc:'Electricity bill',amt:750},
+  {date:'2024-03-15',cat:'Rent',desc:'Kitchen rental',amt:3000},
+  {date:'2024-03-17',cat:'Ingredients',desc:'Spices & condiments',amt:450},
+  {date:'2024-03-18',cat:'Packaging',desc:'Sticker labels',amt:200},
+  {date:'2024-03-20',cat:'Delivery',desc:'Dunzo charges',amt:280},
+  {date:'2024-03-22',cat:'Marketing',desc:'Zomato promotion',amt:600},
+  {date:'2024-03-24',cat:'Ingredients',desc:'Chicken (8 kg)',amt:1280},
+  {date:'2024-03-25',cat:'Utilities',desc:'Gas cylinder',amt:900},
+  {date:'2024-03-27',cat:'Miscellaneous',desc:'Hygiene supplies',amt:350},
+  {date:'2024-03-28',cat:'Ingredients',desc:'Flour & oil',amt:420},
+  {date:'2024-03-30',cat:'Packaging',desc:'Boxes for bulk orders',amt:750},
+  {date:'2024-03-31',cat:'Miscellaneous',desc:'Equipment maintenance',amt:500},
+];
+const inventory=[
+  {item:'Chicken',unit:'kg',open:15,bought:20,used:22,reorder:8},
+  {item:'Maida Flour',unit:'kg',open:10,bought:25,used:18,reorder:10},
+  {item:'Vegetables',unit:'kg',open:8,bought:15,used:12,reorder:8},
+  {item:'Paneer',unit:'kg',open:5,bought:10,used:8,reorder:4},
+  {item:'Ginger',unit:'kg',open:2,bought:3,used:2.5,reorder:2},
+  {item:'Garlic',unit:'kg',open:2,bought:4,used:3,reorder:2},
+  {item:'Onions',unit:'kg',open:5,bought:10,used:8,reorder:3},
+  {item:'Sesame Oil',unit:'litre',open:1,bought:2,used:1.5,reorder:1},
+  {item:'Containers',unit:'pcs',open:100,bought:300,used:280,reorder:100},
+  {item:'Zip-lock Bags',unit:'pcs',open:200,bought:500,used:420,reorder:200},
+  {item:'Sticker Labels',unit:'pcs',open:100,bought:200,used:180,reorder:100},
+  {item:'Packaging Boxes',unit:'pcs',open:50,bought:100,used:85,reorder:50},
+  {item:'Cooking Oil',unit:'litre',open:5,bought:10,used:8,reorder:3},
+];
+let cashflow=[
+  {date:'2024-03-01',desc:'Opening balance',type:'In',cashIn:50000,cashOut:0},
+  {date:'2024-03-01',desc:'Order payments received',type:'In',cashIn:28800,cashOut:0},
+  {date:'2024-03-01',desc:'Chicken & flour purchase',type:'Out',cashIn:0,cashOut:1150},
+  {date:'2024-03-05',desc:'Order payments received',type:'In',cashIn:10400,cashOut:0},
+  {date:'2024-03-05',desc:'Delivery charges',type:'Out',cashIn:0,cashOut:320},
+  {date:'2024-03-10',desc:'Order payments received',type:'In',cashIn:24000,cashOut:0},
+  {date:'2024-03-10',desc:'Instagram promotion',type:'Out',cashIn:0,cashOut:500},
+  {date:'2024-03-13',desc:'Electricity bill',type:'Out',cashIn:0,cashOut:750},
+  {date:'2024-03-15',desc:'Kitchen rent',type:'Out',cashIn:0,cashOut:3000},
+  {date:'2024-03-18',desc:'Order payments received',type:'In',cashIn:21600,cashOut:0},
+  {date:'2024-03-22',desc:'Order payments received',type:'In',cashIn:12000,cashOut:0},
+  {date:'2024-03-25',desc:'Gas cylinder',type:'Out',cashIn:0,cashOut:900},
+  {date:'2024-03-31',desc:'Order payments received',type:'In',cashIn:30000,cashOut:0},
+  {date:'2024-03-31',desc:'Spices & misc',type:'Out',cashIn:0,cashOut:920},
+];
+let orderCounter=sales.length+1;
+const COLORS=['#1a56db','#059669','#dc2626','#d97706','#7c3aed','#db2777','#6b7280'];
+function totalSales(){return sales.reduce((s,r)=>s+r.qty*r.price,0)}
+function totalExpenses(){return expenses.reduce((s,r)=>s+r.amt,0)}
+function nav(id,el){
+  document.querySelectorAll('.page').forEach(p=>p.classList.remove('active'));
+  document.querySelectorAll('.nav-item').forEach(n=>n.classList.remove('active'));
+  document.getElementById('page-'+id).classList.add('active');
+  el.classList.add('active');
+  if(id==='dashboard')renderDashboard();
+  else if(id==='sales')renderSales();
+  else if(id==='expenses')renderExpenses();
+  else if(id==='inventory')renderInventory();
+  else if(id==='pl')renderPL();
+  else if(id==='cashflow')renderCashFlow();
+}
+let charts={};
+function destroyChart(id){if(charts[id]){charts[id].destroy();delete charts[id];}}
+function renderDashboard(){
+  const rev=totalSales(),exp=totalExpenses(),profit=rev-exp;
+  document.getElementById('d-rev').textContent=fmt(rev);
+  document.getElementById('d-exp').textContent=fmt(exp);
+  const pe=document.getElementById('d-profit');
+  pe.textContent=fmt(profit);
+  pe.className=profit>=0?'metric-value profit-positive':'metric-value profit-negative';
+  document.getElementById('d-margin').textContent=rev>0?Math.round(profit/rev*100)+'% margin':'—';
+  document.getElementById('d-orders').textContent=sales.length;
+  const cfBal=cashflow.reduce((s,r)=>s+r.cashIn-r.cashOut,0);
+  document.getElementById('d-cash').textContent=fmt(cfBal);
+  const prodRev={};
+  sales.forEach(s=>{prodRev[s.prod]=(prodRev[s.prod]||0)+s.qty*s.price;});
+  const best=Object.entries(prodRev).sort((a,b)=>b[1]-a[1])[0];
+  document.getElementById('d-best').textContent=best?best[0]:'—';
+  destroyChart('revexp');
+  charts['revexp']=new Chart(document.getElementById('c-revexp'),{type:'bar',data:{labels:['Revenue','Expenses','Net Profit'],datasets:[{data:[rev,exp,Math.max(0,profit)],backgroundColor:['#1a56db','#dc2626','#059669'],borderRadius:4}]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false}},scales:{y:{ticks:{callback:v=>'₹'+Math.round(v/1000)+'k'},grid:{color:'rgba(0,0,0,0.05)'}},x:{grid:{display:false}}}}});
+  destroyChart('prod');
+  const prods=Object.entries(prodRev);
+  charts['prod']=new Chart(document.getElementById('c-prod'),{type:'doughnut',data:{labels:prods.map(p=>p[0]),datasets:[{data:prods.map(p=>p[1]),backgroundColor:COLORS,borderWidth:0}]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{position:'right',labels:{font:{size:11},boxWidth:10,padding:8}}}}});
+  const cats={},catList=['Ingredients','Packaging','Delivery','Marketing','Rent','Utilities','Miscellaneous'];
+  expenses.forEach(e=>{cats[e.cat]=(cats[e.cat]||0)+e.amt;});
+  destroyChart('expcat');
+  charts['expcat']=new Chart(document.getElementById('c-expcat'),{type:'bar',data:{labels:catList,datasets:[{data:catList.map(c=>cats[c]||0),backgroundColor:'#7c3aed',borderRadius:3}]},options:{responsive:true,maintainAspectRatio:false,indexAxis:'y',plugins:{legend:{display:false}},scales:{x:{ticks:{callback:v=>'₹'+Math.round(v/1000)+'k'},grid:{color:'rgba(0,0,0,0.05)'}},y:{grid:{display:false}}}}});
+}
+function renderSales(){
+  const tbody=document.getElementById('sales-body');tbody.innerHTML='';let total=0;
+  [...sales].reverse().forEach(s=>{const t=s.qty*s.price;total+=t;const tr=document.createElement('tr');tr.innerHTML=`<td>${s.date}</td><td><span class="badge badge-blue">${s.id}</span></td><td>${s.cust}</td><td>${s.prod}</td><td>${s.qty}</td><td>₹${s.price}</td><td style="font-weight:600">${fmt(t)}</td>`;tbody.appendChild(tr);});
+  document.getElementById('s-total').textContent=fmt(total);
+  document.getElementById('s-date').value=new Date().toISOString().split('T')[0];
+}
+function addSale(){
+  const date=document.getElementById('s-date').value,cust=document.getElementById('s-cust').value.trim(),prod=document.getElementById('s-prod').value,qty=parseInt(document.getElementById('s-qty').value),price=parseInt(document.getElementById('s-price').value);
+  if(!date||!cust||!qty||!price){alert('Please fill all fields');return;}
+  sales.push({date,id:'ORD-'+(String(orderCounter++).padStart(3,'0')),cust,prod,qty,price});
+  document.getElementById('s-cust').value='';document.getElementById('s-qty').value='';document.getElementById('s-price').value='';
+  renderSales();
+}
+function renderExpenses(){
+  const tbody=document.getElementById('exp-body');tbody.innerHTML='';let total=0;
+  [...expenses].reverse().forEach(e=>{total+=e.amt;const tr=document.createElement('tr');tr.innerHTML=`<td>${e.date}</td><td><span class="badge badge-amber">${e.cat}</span></td><td>${e.desc}</td><td style="font-weight:600">${fmt(e.amt)}</td>`;tbody.appendChild(tr);});
+  document.getElementById('e-total').textContent=fmt(total);
+  const cats={},catList=['Ingredients','Packaging','Delivery','Marketing','Rent','Utilities','Miscellaneous'];
+  expenses.forEach(e=>{cats[e.cat]=(cats[e.cat]||0)+e.amt;});
+  const catBody=document.getElementById('exp-cat-body');catBody.innerHTML='';
+  const totAmt=Object.values(cats).reduce((a,b)=>a+b,0);
+  catList.forEach(c=>{const amt=cats[c]||0;const tr=document.createElement('tr');tr.innerHTML=`<td>${c}</td><td>${fmt(amt)}</td><td>${totAmt>0?Math.round(amt/totAmt*100):0}%</td>`;catBody.appendChild(tr);});
+  destroyChart('exppie');
+  charts['exppie']=new Chart(document.getElementById('c-exppie'),{type:'pie',data:{labels:catList.filter(c=>cats[c]),datasets:[{data:catList.map(c=>cats[c]||0).filter(v=>v),backgroundColor:COLORS,borderWidth:0}]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{position:'right',labels:{font:{size:11},boxWidth:10,padding:6}}}}});
+  document.getElementById('e-date').value=new Date().toISOString().split('T')[0];
+}
+function addExpense(){
+  const date=document.getElementById('e-date').value,cat=document.getElementById('e-cat').value,desc=document.getElementById('e-desc').value.trim(),amt=parseFloat(document.getElementById('e-amt').value);
+  if(!date||!desc||!amt){alert('Please fill all fields');return;}
+  expenses.push({date,cat,desc,amt});
+  document.getElementById('e-desc').value='';document.getElementById('e-amt').value='';
+  renderExpenses();
+}
+function renderInventory(){
+  const tbody=document.getElementById('inv-body');tbody.innerHTML='';let lowCount=0,okCount=0;
+  inventory.forEach(i=>{const closing=i.open+i.bought-i.used;const pct=Math.min(100,Math.round(closing/(i.reorder*3)*100));const isLow=closing<=i.reorder;if(isLow)lowCount++;else okCount++;const barColor=isLow?'#dc2626':pct<60?'#d97706':'#059669';const tr=document.createElement('tr');tr.innerHTML=`<td style="font-weight:600">${i.item}</td><td>${i.unit}</td><td>${i.open}</td><td>${i.bought}</td><td>${i.used}</td><td><strong>${closing.toFixed(1)}</strong><div class="inv-bar"><div class="inv-bar-fill" style="width:${pct}%;background:${barColor}"></div></div></td><td>${i.reorder}</td><td><span class="badge ${isLow?'badge-red':'badge-green'}">${isLow?'Low stock':'OK'}</span></td>`;tbody.appendChild(tr);});
+  document.getElementById('inv-total').textContent=inventory.length;
+  document.getElementById('inv-low').textContent=lowCount;
+  document.getElementById('inv-ok').textContent=okCount;
+}
+function renderPL(){
+  const rev=totalSales(),exp=totalExpenses();
+  const ingr=expenses.filter(e=>e.cat==='Ingredients').reduce((s,e)=>s+e.amt,0);
+  const pkg=expenses.filter(e=>e.cat==='Packaging').reduce((s,e)=>s+e.amt,0);
+  const cogs=ingr+pkg,gross=rev-cogs,opex=exp-cogs,net=rev-exp;
+  const rows=[{label:'Revenue',val:rev,bold:false,section:true},{label:'Total sales',val:rev,bold:false},{label:'Cost of goods sold',val:null,bold:false,section:true},{label:'Ingredients',val:-ingr,bold:false},{label:'Packaging',val:-pkg,bold:false},{label:'Gross profit',val:gross,bold:true,highlight:true},{label:'Gross margin',val:rev>0?gross/rev:0,bold:false,pct:true},{label:'Operating expenses',val:null,bold:false,section:true},{label:'Delivery + Marketing + Rent + Utilities + Misc',val:-opex,bold:false},{label:'Total expenses',val:-exp,bold:true},{label:'Net profit / (loss)',val:net,bold:true,highlight:true,big:true},{label:'Net margin',val:rev>0?net/rev:0,bold:false,pct:true}];
+  const tbody=document.getElementById('pl-body');tbody.innerHTML='';
+  rows.forEach(r=>{const tr=document.createElement('tr');const valStr=r.val===null?'':r.pct?(Math.round(r.val*1000)/10)+'%':fmt(Math.abs(r.val));const valColor=r.val===null?'':r.val>=0?'#166534':'#991b1b';const rowBg=r.highlight?(r.val>=0?'#dcfce7':'#fee2e2'):'';tr.style.background=rowBg;tr.innerHTML=`<td style="${r.section?'font-weight:500;color:#aeaeb2;font-size:11px;padding-top:12px':r.bold?'font-weight:600':'padding-left:16px'}">${r.label}</td><td style="text-align:right;font-weight:${r.bold?'600':'400'};color:${valColor};font-size:${r.big?'16px':'13px'}">${valStr}</td>`;tbody.appendChild(tr);});
+  destroyChart('pl');
+  charts['pl']=new Chart(document.getElementById('c-pl'),{type:'bar',data:{labels:['Revenue','COGS','Gross Profit','Opex','Net Profit'],datasets:[{data:[rev,cogs,gross,opex,Math.max(0,net)],backgroundColor:['#1a56db','#dc2626','#059669','#d97706',net>=0?'#059669':'#dc2626'],borderRadius:4}]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false}},scales:{y:{ticks:{callback:v=>'₹'+Math.round(v/1000)+'k'},grid:{color:'rgba(0,0,0,0.05)'}},x:{grid:{display:false},ticks:{font:{size:11}}}}}});
+}
+function renderCashFlow(){
+  let running=0;const tbody=document.getElementById('cf-body');const labels=[],balances=[];let totalIn=0,totalOut=0;tbody.innerHTML='';
+  cashflow.forEach(r=>{running+=r.cashIn-r.cashOut;totalIn+=r.cashIn;totalOut+=r.cashOut;labels.push(r.date.slice(5));balances.push(running);const tr=document.createElement('tr');tr.innerHTML=`<td>${r.date}</td><td>${r.desc}</td><td><span class="badge ${r.type==='In'?'badge-green':'badge-red'}">${r.type}</span></td><td style="color:#166534">${r.cashIn?fmt(r.cashIn):''}</td><td style="color:#991b1b">${r.cashOut?fmt(r.cashOut):''}</td><td style="font-weight:600">${fmt(running)}</td>`;tbody.appendChild(tr);});
+  document.getElementById('cf-in').textContent=fmt(totalIn);document.getElementById('cf-out').textContent=fmt(totalOut);document.getElementById('cf-bal').textContent=fmt(running);
+  destroyChart('cf');
+  charts['cf']=new Chart(document.getElementById('c-cf'),{type:'line',data:{labels,datasets:[{label:'Balance',data:balances,borderColor:'#1a56db',backgroundColor:'rgba(26,86,219,0.08)',fill:true,tension:0.3,pointRadius:3}]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false}},scales:{y:{ticks:{callback:v=>'₹'+Math.round(v/1000)+'k'},grid:{color:'rgba(0,0,0,0.05)'}},x:{grid:{display:false},ticks:{maxTicksLimit:8}}}}});
+}
+renderDashboard();
+</script>
+</body>
+</html>
